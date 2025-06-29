@@ -1,0 +1,15 @@
+{
+  "name": "kingobot",
+  "version": "1.0.0",
+  "description": "WhatsApp Bot for tagging and help commands",
+  "main": "bot.js",
+  "scripts": {
+    "start": "node bot.js"
+  },
+  "dependencies": {
+    "@whiskeysockets/baileys": "^6.7.5",
+    "axios": "^1.7.2",
+    "pino": "^8.21.0",
+    "qrcode-terminal": "^0.12.0"
+  }
+}

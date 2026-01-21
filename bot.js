@@ -3,39 +3,41 @@
 const {
     default: makeWASocket,
     useMultiFileAuthState,
-    DisconnectReason,
+    DisconnectReason
 } = require('@whiskeysockets/baileys');
 const pino = require('pino');
 const qrcode = require('qrcode-terminal');
 const axios = require('axios');
 
 async function connectToWhatsApp() {
-    const { state, saveCreds } = await useMultiFileAuthState('baileys_auth_info');
+    const { state, saveCreds } =
+        await useMultiFileAuthState('baileys_auth_info');
 
     const logger = pino({ level: 'silent' });
 
     const sock = makeWASocket({
         logger: logger,
-        auth: state,
+        auth: state
     });
 
-    sock.ev.on('connection.update', (update) => {
+    sock.ev.on('connection.update', update => {
         const { connection, lastDisconnect, qr } = update;
 
         if (qr) {
-            console.log("סרוק את קוד ה-QR הבא כדי להתחבר לוואטסאפ:");
+            console.log('סרוק את קוד ה-QR הבא כדי להתחבר לוואטסאפ:');
             qrcode.generate(qr, { small: true });
         }
 
         if (connection === 'close') {
             const statusCode = lastDisconnect?.error?.output?.statusCode;
             const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
-            console.log(`החיבור נסגר, סיבה: ${statusCode}. מתחבר מחדש: ${shouldReconnect}`);
-            
+            console.log(
+                `החיבור נסגר, סיבה: ${statusCode}. מתחבר מחדש: ${shouldReconnect}`
+            );
+
             if (shouldReconnect) {
                 connectToWhatsApp();
             }
-
         } else if (connection === 'open') {
             console.log('החיבור לוואטסאפ הצליח!');
             console.log('KingOBot מוכן לפעולה!');
@@ -48,17 +50,25 @@ async function connectToWhatsApp() {
 }
 
 async function listenToMessages(sock) {
-    sock.ev.on('messages.upsert', async (m) => {
+    sock.ev.on('messages.upsert', async m => {
         if (!m.messages || m.type !== 'notify') return;
 
         const msg = m.messages[0];
         const remoteJid = msg.key.remoteJid;
         const isGroup = remoteJid.endsWith('@g.us');
-        const originalMessageText = (msg.message?.conversation || msg.message?.extendedTextMessage?.text || '').trim();
+        const originalMessageText = (
+            msg.message?.conversation ||
+            msg.message?.extendedTextMessage?.text ||
+            ''
+        ).trim();
         const messageText = originalMessageText.toLowerCase();
 
         if (messageText === '!פינג') {
-            await sock.sendMessage(remoteJid, { text: 'פונג! 🏓' }, { quoted: msg });
+            await sock.sendMessage(
+                remoteJid,
+                { text: 'פונג! 🏓' },
+                { quoted: msg }
+            );
         }
 
         if (messageText === '!עזרה') {
@@ -66,10 +76,14 @@ async function listenToMessages(sock) {
                 // ========================================================
                 // <<< גרסת ה"מודעה" עם externalAdReply >>>
                 // ========================================================
-                const groupLink = 'https://chat.whatsapp.com/EjhNtVsPWOo4pSdFKDrgZV';
-                const imageUrl = 'https://mitmachim.top/assets/uploads/files/1751171967758-image-2.png'; // התמונה החדשה שלך
+                const groupLink =
+                    'https://chat.whatsapp.com/EjhNtVsPWOo4pSdFKDrgZV';
+                const imageUrl =
+                    'https://mitmachim.top/assets/uploads/files/1751171967758-image-2.png'; // התמונה החדשה שלך
 
-                const response = await axios.get(imageUrl, { responseType: 'arraybuffer' });
+                const response = await axios.get(imageUrl, {
+                    responseType: 'arraybuffer'
+                });
                 const imageBuffer = Buffer.from(response.data, 'binary');
 
                 const helpMessageWithAdReply = {
@@ -84,7 +98,7 @@ async function listenToMessages(sock) {
 - *!תייג [הטקסט שלך]*
 
 *👈 לחץ כאן להצטרפות לקבוצת התמיכה*`,
-                    
+
                     contextInfo: {
                         externalAdReply: {
                             title: 'KingOBot - הקבוצה הרשמית',
@@ -99,17 +113,22 @@ async function listenToMessages(sock) {
                 };
 
                 await sock.sendMessage(remoteJid, helpMessageWithAdReply);
-
             } catch (error) {
-                console.error("שגיאה ביצירת הודעת העזרה:", error);
-                await sock.sendMessage(remoteJid, { text: "אופס, קרתה שגיאה. נסה שוב מאוחר יותר." });
+                console.error('שגיאה ביצירת הודעת העזרה:', error);
+                await sock.sendMessage(remoteJid, {
+                    text: 'אופס, קרתה שגיאה. נסה שוב מאוחר יותר.'
+                });
             }
             return;
         }
 
         if (messageText === '!תייג את כולם') {
             if (!isGroup) {
-                return sock.sendMessage(remoteJid, { text: 'פקודה זו זמינה בקבוצות בלבד.' }, { quoted: msg });
+                return sock.sendMessage(
+                    remoteJid,
+                    { text: 'פקודה זו זמינה בקבוצות בלבד.' },
+                    { quoted: msg }
+                );
             }
             const groupMetadata = await sock.groupMetadata(remoteJid);
             const participants = groupMetadata.participants;
@@ -122,17 +141,27 @@ async function listenToMessages(sock) {
                 mentions.push(userJid);
             }
             text += '```\nנשלח באמצעות KingOBot';
-            await sock.sendMessage(remoteJid, { text, mentions }, { quoted: msg });
-        } 
-        
-        else if (messageText.startsWith('!תייג ')) {
+            await sock.sendMessage(
+                remoteJid,
+                { text, mentions },
+                { quoted: msg }
+            );
+        } else if (messageText.startsWith('!תייג ')) {
             if (!isGroup) {
-                return sock.sendMessage(remoteJid, { text: 'פקודה זו זמינה בקבוצות בלבד.' }, { quoted: msg });
+                return sock.sendMessage(
+                    remoteJid,
+                    { text: 'פקודה זו זמינה בקבוצות בלבד.' },
+                    { quoted: msg }
+                );
             }
             const customText = originalMessageText.substring('!תייג '.length);
             const groupMetadata = await sock.groupMetadata(remoteJid);
             const participants = groupMetadata.participants.map(p => p.id);
-            await sock.sendMessage(remoteJid, { text: customText, mentions: participants }, { quoted: msg });
+            await sock.sendMessage(
+                remoteJid,
+                { text: customText, mentions: participants },
+                { quoted: msg }
+            );
         }
     });
 }
